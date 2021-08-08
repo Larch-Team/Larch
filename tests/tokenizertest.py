@@ -32,5 +32,18 @@ class TestTokenize(test.TestCase):
         self.assertEqual(self.lexer.tokenize("(p -> q)"), ['(',"sentvar_p", "imp_->", "sentvar_q",')'])
         self.assertEqual(self.lexer.tokenize('(~ p)'), ['(','not_~','sentvar_p',')'])
 
+    def test_string(self):
+        self.assertEqual(self.lexer.tokenize("pies"), ["sentvar_pies"])
+        self.assertEqual(self.lexer.tokenize("pies or kot"), ["sentvar_pies", "or_or", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies | kot"), ["sentvar_pies", "or_|", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies v kot"), ["sentvar_pies", "or_v", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies and kot"), ["sentvar_pies", "and_and", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies ^ kot"), ["sentvar_pies", "and_^", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies & kot"), ["sentvar_pies", "and_&", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies imp kot"), ["sentvar_pies", "imp_imp", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize("pies -> kot"), ["sentvar_pies", "imp_->", "sentvar_kot"])
+        self.assertEqual(self.lexer.tokenize('not pies'), ['not_not','sentvar_pies'])
+
+
 if __name__ == "__main__":
     test.main()
