@@ -330,6 +330,8 @@ class Session(object):
             raise EngineError(
                 "There is no proof started")
         
+        if self.proof.nodes.is_closed():
+            return ("Dowód jest już ukończony",)
         if self.acc('Formal').solver(self.proof):
             return ("Udało się zakończyć dowód", f"Formuła {'nie '*(not self.proof.nodes.is_successful())}jest tautologią")
         else:
