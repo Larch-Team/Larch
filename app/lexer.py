@@ -212,11 +212,11 @@ class BuiltLexer(object):
 
         else:
             counted = Counter(
-                (l for t, l in sentence.getItems() if l == type_)).items()
+                (l for t, l in sentence.getItems() if t == type_)).items()
             try:
                 new_lex = max(counted, key=lambda x: x[1])[0]
             except ValueError:
-                return getone(self.generator_regexes[type_])
+                return f"{type_}_{getone(self.generator_regexes[type_])}"
             else:
                 return f"{type_}_{new_lex}"
 
