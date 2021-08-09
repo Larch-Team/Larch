@@ -23,14 +23,28 @@ class LrchLexerError(Exception):
     pass
 
 
+def group_keys(tuples):
+    d = {}
+    if isinstance(tuples, dict):
+        tuples = tuples.items()
+    for v, k in tuples:
+        if k in d:
+            d[k].append(v)
+        else:
+            d[k] = [v]
+    return d
+
+
 def join_items(tuples):
     d = {}
+    if isinstance(tuples, dict):
+        tuples = tuples.items()
     for k, v in tuples:
         if k in d:
             d[k].extend(v)
         else:
             d[k] = list(v)
-    return {k: tuple(v) for k, v in d.items()}
+    return d
 
 
 def sep_items(tuples):
@@ -72,12 +86,6 @@ class BuiltLexer(object):
         self.find_new = self._get_find_new(lex)
 
         lex_tokens = [(i, j) for i, j, _ in self._filter_constraints(lex, kwargs)]
-        gen_tokens = [(i, j) for i, j, for_generation in self._filter_constraints(lex, kwargs) if for_generation]
-
-        # Generate lexems
-        
-        self.generator_regexes = {key: self._regex_from_list(
-            val, True) for key, val in join_items(gen_tokens).items()}
             
         # Recognize lexems
 
@@ -128,6 +136,14 @@ class BuiltLexer(object):
             setattr(_Lex, f"t_{type_}", lexems)
 
         self.lexer = _Lex()
+        
+        
+        # Generate lexems
+        not_for_generation = sum((list(j) for _, j, for_generation in self._filter_constraints(lex, kwargs) if not for_generation), [])
+        
+        keyword_gen = {i:"("+")|(".join((resc(r) for r in j if r not in not_for_generation))+")" for i,j in group_keys(keywords).items()}
+        regex_gen = {i:"("+")|(".join((r for r in j if r not in not_for_generation))+")" for i,j in regexes.items()}
+        self.generator_regexes = keyword_gen | regex_gen
 
     @staticmethod
     def _regex_from_list(lst: list[str], escape: bool = False):
@@ -143,7 +159,7 @@ class BuiltLexer(object):
         for def_constr, type_, lexems in lex.rules:
             rewritten_satisfied = sep_items(satisfied)
             if all((i in rewritten_satisfied for i in def_constr if i[0] not in NOT_CHECKED)):
-                yield type_, lexems, any((i[0] == 'no_generation' for i in def_constr))
+                yield type_, lexems, all((i[0] != 'no_generation' for i in def_constr))
 
     @staticmethod
     def _get_find_new(lex: Lexicon) -> set[str]:
@@ -184,10 +200,10 @@ class BuiltLexer(object):
         assert type_ in self.generator_regexes, "Type doesn't exist in this Lexicon"
         if type_ in self.find_new:
             new_lexems = generate(self.generator_regexes[type_])
-            used_lexems = sentence.getLexems()
+            used_lexems = {j for i,j in sentence.getItems() if i == type_}
 
             try:
-                while (new_lex := next(new_lexems)) not in used_lexems:
+                while (new_lex := next(new_lexems)) in used_lexems:
                     pass
             except StopIteration:
                 return None
