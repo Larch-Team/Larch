@@ -3,15 +3,21 @@ from collections import namedtuple, Counter
 from typing import Any, Iterable, Union, NewType
 from sentence import Sentence
 from exrex import generate, getone
+from re import escape as resc
 import re
 
 import ply.lex as plex
-from ply.lex import LexError
+from ply.lex import LexError, TOKEN
 
 token_type = NewType('Token', str)
 
 LexerRule = namedtuple('LexerRule', ('constraints', 'type_', 'lexems'))
 
+class _RegEx(str):
+    pass
+
+def RegEx(*obj: str) -> list[_RegEx]:
+    return [_RegEx(i) for i in obj]
 
 class LrchLexerError(Exception):
     pass
@@ -29,7 +35,9 @@ def join_items(tuples):
 
 def sep_items(tuples):
     d = []
-    for k, v in tuples.items():
+    if isinstance(tuples, dict):
+        tuples = tuples.items()
+    for k, v in tuples:
         if isinstance(v, (tuple, list)):
             d.extend([(k, i) for i in v])
         else:
@@ -51,7 +59,7 @@ class Lexicon(object):
             self.rules.add(LexerRule(tuple(self.STACK), type_, (lexems,)))
             self.needs_casing |= lexems.isupper()
         elif isinstance(lexems, (list, tuple, set)):
-            self.rules.add(LexerRule(tuple(self.STACK), type_, lexems))
+            self.rules.add(LexerRule(tuple(self.STACK), type_, tuple(lexems)))
             self.needs_casing |= any((i.isupper() for i in lexems))
 
 
@@ -63,22 +71,34 @@ class BuiltLexer(object):
         self.LITERALS = lex.LITERALS
         self.find_new = self._get_find_new(lex)
 
-        lex_re = ((i, j) for i, j, _ in self._filter_constraints(lex, kwargs))
-        gen_re = ((i, j) for i, j, for_generation in lex_re if for_generation)
+        lex_tokens = [(i, j) for i, j, _ in self._filter_constraints(lex, kwargs)]
+        gen_tokens = [(i, j) for i, j, for_generation in self._filter_constraints(lex, kwargs) if for_generation]
+
+        # Generate lexems
+        
+        self.generator_regexes = {key: self._regex_from_list(
+            val, True) for key, val in join_items(gen_tokens).items()}
+            
+        # Recognize lexems
+
+        keywords, regexes = {}, {}
+        for key, val in sep_items(lex_tokens):
+            if isinstance(val, _RegEx):
+                if regexes.get(key):
+                    regexes[key].append(str(val))
+                else:
+                    regexes[key] = [str(val)]
+            else:
+                keywords[val] = key
 
         self.lexer_regexes = {key: self._regex_from_list(
-            val) for key, val in self._join_rules(lex_re).items()}
-        self.generator_regexes = {key: self._regex_from_list(
-            val) for key, val in self._join_rules(gen_re).items()}
-
-        if set(self.lexer_regexes).issubset(self.generator_regexes):
-            raise LrchLexerError(
-                "Zbiór leksemów nie pozwala na generowanie nowych zmiennych")
+            val) for key, val in regexes.items()}
 
         class _Lex:
             _master_re = re
             literals = lex.LITERALS
-            tokens = [i for i in self.lexer_regexes]
+            reserved = keywords
+            tokens = [i for i in self.lexer_regexes] + list(set(reserved.values()))
             t_ignore = ' \t'
 
             def __init__(self) -> None:
@@ -99,39 +119,36 @@ class BuiltLexer(object):
                     else:
                         yield f"{i.type}_{i.value}"
 
+            @TOKEN(self._regex_from_list(reserved.keys(), True))
+            def t_reserved(self, t):
+                t.type = self.reserved[t.value]    # Check for reserved words
+                return t
+        
         for type_, lexems in sorted(self.lexer_regexes.items(), key=lambda x: len(x[1]), reverse=True):
             setattr(_Lex, f"t_{type_}", lexems)
 
         self.lexer = _Lex()
 
     @staticmethod
-    def _regex_from_list(lst: list[str]):
-        return r"|".join((f"({i})" for i in lst))
+    def _regex_from_list(lst: list[str], escape: bool = False):
+        if escape:
+            return r"|".join((f"({resc(i)})" for i in sorted(lst, reverse=True)))
+        else:
+            return r"|".join((f"({i})" for i in sorted(lst, reverse=True)))
 
+        
     @staticmethod
     def _filter_constraints(lex: Lexicon, satisfied: dict[str, Any]) -> Iterable[tuple[str, tuple[str]]]:
+        NOT_CHECKED = 'find_new', 'no_generation'
         for def_constr, type_, lexems in lex.rules:
             rewritten_satisfied = sep_items(satisfied)
-            if all((i in rewritten_satisfied for i in def_constr if i[0] != 'find_new')):
-                yield type_, lexems, any((i[0] == 'no_generation' for i in rewritten_satisfied))
+            if all((i in rewritten_satisfied for i in def_constr if i[0] not in NOT_CHECKED)):
+                yield type_, lexems, any((i[0] == 'no_generation' for i in def_constr))
 
     @staticmethod
     def _get_find_new(lex: Lexicon) -> set[str]:
         """Zwraca zbiór wszystkim typów, które określono w kontekście find_new"""
         return {type_ for constraints, type_, _ in lex.rules if any((i[0] == 'find_new' for i in constraints))}
-
-    @staticmethod
-    def _join_rules(rules: Iterable[tuple[str, tuple[str]]]) -> dict[str, tuple[str]]:
-        """
-        Łączy duplikaty reguł
-
-        :param rules: pierwotny ciąg reguł
-        :type rules: Iterable[tuple[str, tuple[str]]]
-        :return: reguły po złączeniu
-        :rtype: dict[str, tuple[str]]
-        """
-        d = join_items(rules)
-        return {k: sorted(i, reverse=True) for k, i in d.items()}
 
     def tokenize(self, formula: str) -> list[token_type]:
         """

@@ -1,4 +1,4 @@
-from lexer import RuleConstraint, Lexicon
+from lexer import RuleConstraint, Lexicon, RegEx
 from misc import get_plugin_path
 
 # Rule Constraints

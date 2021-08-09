@@ -10,26 +10,26 @@ Lex = Lexicon()
 
 with use_language('propositional'):
     with use_language('uses negation'):
-        Lex['not'] = 'not', '~', r'\!'
-    Lex['and'] = 'oraz', 'and', r'\^', '&'
-    Lex['or'] = 'lub', 'or', r'\|', 'v'
+        Lex['not'] = 'not', '~', '!'
+    Lex['and'] = 'oraz', 'and', '^', '&'
+    Lex['or'] = 'lub', 'or', '|', 'v'
     Lex['imp'] = 'imp', '->'
-    with find_new():
-        Lex['sentvar'] = r'[a-z]'
     with no_generation():
-        Lex['sentvar'] = r'\w+'
+        Lex['sentvar'] = RegEx(r'\w+')
+    with find_new():
+        Lex['sentvar'] = RegEx(r'[a-z]')
 
 with use_language('predicate'):
     Lex['forall'] = 'forall', '/\\', 'A'
     Lex['exists'] = 'exists', '\\/', 'E'
     with find_new():
-        Lex['constant'] = r'[a-t]', r'\d'
-        Lex['indvar'] = r'[u-z]'
-        Lex['predicate'] = r'[P-Z]'
-        Lex['function'] = r'[F-O]'
+        Lex['constant'] = RegEx(r'[a-t]', r'\d')
+        Lex['indvar'] = RegEx(r'[u-z]')
+        Lex['predicate'] = RegEx(r'[P-Z]')
+        Lex['function'] = RegEx(r'[F-O]')
 
 with use_language('sequent calculus'):
-    Lex['turnstile'] = r'=>', r'\|-'
+    Lex['turnstile'] = '=>', '\|-'
     Lex['sep'] = ';'
     Lex['falsum'] = 'bot', 'F'
 
