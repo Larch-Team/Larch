@@ -24,6 +24,19 @@ class TestGenerate(test.TestCase):
         self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'and_&', 'sentvar_q'], None), 'and'), 'and_&')
         self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'imp_->', 'sentvar_q'], None), 'imp'), 'imp_->') 
     
+    def test_complex(self) -> None:
+        self.assertEqual(self.lexer.generate(Sentence(['not_not','sentvar_p','and_&','sentvar_q'], None), 'and'), 'and_&')
+        self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'or_or', 'sentvar_q','imp_imp','sentvar_z'], None), 'imp'), 'imp_imp')
+        self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'and_and', 'not_not', 'sentvar_q', 'or_or', 'sentvar_z'], None), 'and'), 'and_and')
+        self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'imp_imp', 'sentvar_q', 'and_and', 'sentvar_p', 'imp_imp', 'sentvar_q'], None), 'imp'), 'imp_imp')
+        self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'imp_imp', 'sentvar_q', 'imp_->', 'sentvar_p', 'imp_imp', 'sentvar_q'], None), 'imp'), 'imp_imp')
+        self.assertEqual(self.lexer.generate(Sentence(['sentvar_p', 'imp_->', 'sentvar_q', 'imp_->', 'sentvar_p', 'imp_imp', 'sentvar_q'], None), 'imp'), 'imp_->')
+        self.assertIn(self.lexer.generate(Sentence(['not_~', 'sentvar_p', 'and_and', 'not_not', 'sentvar_q', 'or_or','not_not', 'sentvar_p'], None), 'not'), 'not_not')
+        self.assertIn(self.lexer.generate(Sentence(['sentvar_p', 'or_v', 'sentvar_q', 'or_|', 'sentvar_z'], None), 'or'), ['or_v', 'or_|'])
+        self.assertIn(self.lexer.generate(Sentence(['sentvar_p', 'or_|', 'sentvar_q', 'or_or', 'sentvar_z', 'or_v', 'sentvar_r'], None), 'or'), ['or_|', 'or_or', 'or_v'])
+        self.assertIn(self.lexer.generate(Sentence(['sentvar_p', 'and_&', 'sentvar_q', 'and_^', 'sentvar_z'], None), 'and'), ['and_&', 'and_^'])
+        self.assertIn(self.lexer.generate(Sentence(['sentvar_p', 'imp_imp', 'sentvar_q', 'and_and', 'sentvar_p', 'imp_->', 'sentvar_q'], None), 'imp'), ['imp_imp','imp_->'])
+
     def test_new(self) -> None:
         n = self.lexer.generate(Sentence(['sentvar_p', 'or_or', 'sentvar_q'], None), 'sentvar')
         self.assertTrue(n.startswith('sentvar_'))
@@ -45,5 +58,11 @@ class TestGenerate(test.TestCase):
         n_not = self.lexer.generate(Sentence(['sentvar_p', 'or_or', 'sentvar_q'], None), 'not')
         self.assertIn(n_not, ['not_not', 'not_~', 'not_!'])
     
+    def test_nogeneration(self) -> None:
+        a = 'abcdefghijklmnopqrstuvwxyz'
+        sentvars = ['sentvar_' + letter for letter in a]
+        n = self.lexer.generate(Sentence(sentvars, None), 'sentvar')
+        self.assertIn(n, [*sentvars, None])
+
 if __name__ == "__main__":
     test.main()
