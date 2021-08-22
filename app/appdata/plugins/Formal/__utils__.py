@@ -117,35 +117,6 @@ def cleaned(func):
 
 # Useful functions for creating rules
 
-# Sentence manipulation
-
-def pop_part(sentence: Sentence, split_type: str, sent_num: int):
-    """
-    Zwraca n-te podzdanie (podział według obiektów split_type) usuwając je ze zdania
-    """
-    split_count = 0
-    start_split = 0
-    for s in sentence:
-        if s.startswith(f"{split_type}_"):
-            split_count += 1
-        if split_count == sent_num:
-            break
-        start_split += 1
-
-    if len(sentence) <= start_split or split_count<sent_num:
-        raise IndexError("sent_num is too big")
-
-    part = []
-    if split_count>0:
-        sentence.pop(start_split)
-    
-    while start_split<len(sentence) and not sentence[start_split].startswith(f"{split_type}_"):
-        part.append(sentence.pop(start_split))
-
-    if len(sentence)>0 and split_count == 0:
-        sentence.pop(start_split)
-    return part
-
 
 # Tuple structure manipulation
 

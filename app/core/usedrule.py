@@ -25,6 +25,9 @@ class UsedRule(object):
         sentids = [i.variable for i in context_defs if i.type_ == 'sentenceID']
         return {i: branch[j] for i, j in self.context.items() if i in sentids}
     
+    def get_branch(self) -> list[Sentence]:
+        branch, _ = self._proof.nodes.getleaf(self.branch).getbranch_sentences()
+        return branch
     
     def copy(self, new_proof: _BranchCentric):
         return UsedRule(self.layer, self.branch, self.rule, new_proof, self.context.copy(), self.decisions.copy(), self.auto)
