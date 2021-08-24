@@ -199,13 +199,14 @@ class Socket(object):
     def _only_import(self, plugin_name, paths: tp.Iterable[str] = []):
         sys.path = paths + sys.path
         
-        spec = importlib.util.spec_from_file_location(
-            plugin_name, f"{self.dir}/{plugin_name}")
-        result = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(result)
-        
-        for _ in paths:
-            sys.path.pop(0)
+        try:
+            spec = importlib.util.spec_from_file_location(
+                plugin_name, f"{self.dir}/{plugin_name}")
+            result = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(result)
+        finally:
+            for _ in paths:
+                sys.path.pop(0)
 
         return result
 

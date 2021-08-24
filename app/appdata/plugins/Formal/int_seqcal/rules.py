@@ -220,27 +220,13 @@ def func_right_imp(left: utils.Sentence, right: utils.Sentence):
     split = split[0]
     return ((split[0]+sep(left)+left,),), ((split[1],),)
 
-# def func_left_strong(left: utils.Sentence, right: utils.Sentence, num: int):
-#     """ ..., A, A => ...
-#         ________________
-#         ..., A => ...
-#     """
-#     conj, rest = pop_part(left, 'sep', num)
-#     if conj is None:
-#         return (None, None)
-    
-#     return ((conj+sep()+conj+sep(rest)+rest,),), ((right,),)
+left_and.children = [right_imp]
+right_imp.children = [right_and]
+right_and.children = [left_or]
+left_or.children = [left_imp]
+left_imp.children = [right_or_l]
+right_or_l.children = [right_or_r]
 
-# def func_left_weak(left: utils.Sentence, right: utils.Sentence, num: int):
-#     """ ... => ...
-#         ______________
-#         ..., A => ...
-#     """
-#     conj, rest = pop_part(left, 'sep', num)
-#     if conj is None:
-#         return (None, None)
-    
-#     return ((left,),), ((right,),)
 
 _r = [
     right_and, right_imp, right_or_l, right_or_r,

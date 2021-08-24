@@ -11,12 +11,12 @@ import typing as tp
 from exceptions import RaisedUserMistake, UserMistake
 import plugins.Formal.__utils__ as utils
 from history import History
-from plugins.Formal.int_seqcal.libs import list_parts
 from rules import RULES, PRECEDENCE
-from libs import is_sequent
+from libs import is_sequent, check_closure, list_parts
 from proof import Proof
 from sentence import Sentence
 from usedrule import UsedRule
+from seq_solver import solve
 
 SOCKET = 'Formal'
 VERSION = '0.2.0'
@@ -37,33 +37,6 @@ def prepare_for_proving(statement: Sentence) -> Sentence:
         return utils.add_prefix(statement, 'turnstile', '=>')
     else:
         return statement
-
-
-def check_closure(branch: list[Sentence], used: History) -> tp.Union[None, tuple[utils.close.Close, str]]:
-    """Sprawdza możliwość zamknięcia gałęzi, zwraca obiekty zamknięcia oraz komunikat do wyświetlenia"""
-    _, (left, right) = branch[-1].getComponents(PRECEDENCE)
-
-    # Right part verification
-    empty = len(right)==1
-
-    # Left part verification
-    if not left:
-        return None
-    for f in list_parts(left):
-
-        # F, ... => ...
-        if len(f)==1 and f[0].startswith("falsum_"):
-            return utils.close.Falsum, "Falsum found on the left"
-
-        # p, ... => p
-        if f==right:
-            return utils.close.Axiom, "Sequent on the right corresponds with a sequent on the left"
-
-        # Detect finish
-        empty &= not any((any((j.startswith(i) for j in f)) for i in ('and_', 'or_', 'imp_')))
-
-    if empty:
-        return utils.close.Emptiness, "Nothing more can be done with this branch, so it was closed."
 
 
 def check_syntax(tokenized_statement: Sentence) -> tp.Union[UserMistake, None]:
@@ -88,6 +61,12 @@ def get_needed_context(rule_name: str) -> tuple[utils.ContextDef]:
 
 
 def solver(proof: Proof) -> bool:
+    while not (solved := solve(proof)):
+        if proof.metadata['usedrules']:
+            proof.nodes.pop(proof.metadata['usedrules'].pop().layer)
+        else:
+            break
+    return solved
     
 
 
