@@ -18,6 +18,7 @@ from tree import ProofNode
 from close import Close
 import lexer
 from usedrule import *
+from translator import spare_transl, translate, translate_all
 
 Module = pop.Module
 
@@ -31,6 +32,7 @@ def EngineLog(func):
     def new(*args, **kwargs):
         logger.debug(f'{func.__name__} with args={args} and kwargs={kwargs}')
         return func(*args, **kwargs)
+    new.__annotations__ = func.__annotations__
     return new
 
 
@@ -38,6 +40,7 @@ def EngineChangeLog(func):
     def new(*args, **kwargs):
         logger.info(f'{func.__name__} with args={args} and kwargs={kwargs}')
         return func(*args, **kwargs)
+    new.__annotations__ = func.__annotations__
     return new
 
 # Input type handling
@@ -55,9 +58,10 @@ def contextdef_translate(contextdef: ContextDef):
     else:
         return contextdef
 
+
 # Session
 
-
+@translate_all
 class Session(object):
     """
     Obekty sesji stanowią pojedyncze instancje działającego silnika.
@@ -67,9 +71,11 @@ class Session(object):
     SOCKETS = {'Assistant': '0.0.1',
                'Formal': '0.2.0',
                'Lexicon': '0.0.1',
-               'Output': '0.0.1'}
+               'Output': '0.0.1',
+               'Translate': '0.0.1'}
     SOCKETS_NOT_IN_CONFIG = ()
 
+    @spare_transl
     def __init__(self, session_ID: str, config_file: str):
         """Obekty sesji stanowią pojedyncze instancje działającego silnika.
 
@@ -99,6 +105,7 @@ class Session(object):
 
         self.compile_lexer()
 
+    @spare_transl
     def __repr__(self):
         return f"Session({self.id=})"
 
@@ -114,12 +121,13 @@ class Session(object):
                 socket_name = i[0]
                 return self.sockets[socket_name]
         else:
-            raise EngineError(f"Socket/plugin {name} not found in the program")
+            raise EngineError('No socket or plugin found in the program')
 
+    @spare_transl
     def acc(self, socket: str) -> Module:
         """Zwraca plugin aktualnie podłączony do gniazda o podanej nazwie"""
         if (sock := self.sockets.get(socket, None)) is None:
-            raise EngineError(f"There is no socket named {socket}")
+            raise EngineError('There is no socket named this way')
         try:
             return sock()
         except PluginError as e:
@@ -137,8 +145,7 @@ class Session(object):
         """
         socket = self._find_socket(socket_or_old)
         if socket.name in ('Formal', 'Lexicon') and self.proof:
-            raise EngineError(
-                f"Finish your proof before changing the {socket.name} plugin")
+            raise EngineError("Changing this plugin is not allowed while proving")
 
         # Plugging
         try:
@@ -165,7 +172,7 @@ class Session(object):
         """
         sock = self.sockets.get(socket, None)
         if sock is None:
-            raise EngineError(f"There is no socket named {socket}")
+            raise EngineError('There is no socket named this way')
         else:
             return sock.find_plugins()
 
@@ -180,11 +187,11 @@ class Session(object):
         """
         sock = self.sockets.get(socket, None)
         if sock is None:
-            raise EngineError(f"There is no socket named {socket}")
+            raise EngineError('There is no socket named this way')
         else:
             sock.generate_template(name)
 
-    def plug_download(self, socket_or_old: str, name: str, force: bool = False) -> tp.Iterator[str]:
+    def plug_download(self, socket_or_old: str, name: str, force: bool = False) -> tp.Iterable[str]:
         """Pobiera plugin
 
         :param socket_or_old: Nazwa aktualnie podłączonego pluginu, lub gniazda
@@ -290,6 +297,7 @@ class Session(object):
                                       use_language=self.acc(
                                           'Formal').get_tags()
                                       )
+    
 
     # Config reading and writing
 
@@ -297,15 +305,17 @@ class Session(object):
         self.config['accessibility'] = level
         self.write_config()
 
+    @spare_transl
     def read_config(self):
         logger.debug("Config loading")
         if not os.path.isfile(f"config/{self.config_name}"):
             with open(f"config/{self.config_name}", 'w') as target:
                 target.write(
-                    r'{"chosen_plugins": {"Assistant": "pan", "UserInterface": "CLI", "Lexicon": "classic", "Formal": "analytic_freedom", "Output": "actual_tree"}, "accessibility": 4}')
+                    r'{"chosen_plugins": {"Assistant": "pan", "UserInterface": "CLI", "Lexicon": "classic", "Formal": "analytic_freedom", "Output": "actual_tree", "Translate": "eng"}, "accessibility": 4}')
         with open(f"config/{self.config_name}", 'r') as target:
             self.config = json.load(target)
 
+    @spare_transl
     def write_config(self):
         logger.debug("Config writing")
         with open(f"config/{self.config_name}", 'w') as target:
@@ -355,7 +365,7 @@ class Session(object):
         closure, info = self.proof.deal_closure(
             self.acc('Formal'), branch_name)
         if closure:
-            EngineLog(f'Closing {branch_name}: {closure}, info={info!r}')
+            logger.debug(f'Closing {branch_name}: {closure}, info={info!r}')
             return info
         else:
             return None
@@ -461,7 +471,7 @@ class Session(object):
                 json.dump(state, save_file)
             return 'Proof saved successfully'
         else:
-            raise EngineError('Plik o podanej nazwie juz istnieje')
+            raise EngineError('File with this name already exists')
 
     @EngineLog
     def load_proof(self, filename: str):
@@ -520,7 +530,7 @@ class Session(object):
         if not proof:
             raise EngineError("There is no proof started")
         if not proof.nodes.is_closed():
-            raise EngineError("Nie możesz sprawdzić nieskończonego dowodu")
+            raise EngineError("You can't check an unfinished proof")
 
         mistakes = proof.check()
         l = []
@@ -540,9 +550,9 @@ class Session(object):
                 "There is no proof started")
 
         if self.acc('Formal').solver(proof):
-            return ("Udało się zakończyć dowód", f"Formuła {'nie '*(not proof.nodes.is_successful())}jest tautologią")
+            return ("The proof is finished", f"This formula is {'not '*(not proof.nodes.is_successful())}a tautology")
         else:
-            return ("Nie udało się zakończyć dowodu",)
+            return ("The proof cannot be finished",)
 
     # Proof navigation
 
@@ -551,8 +561,7 @@ class Session(object):
         try:
             branch, closed = self.proof.get_node().getbranch_sentences()
         except KeyError:
-            raise EngineError(
-                f"Branch '{self.branch}' doesn't exist in this proof")
+            raise EngineError("Branch with this name doesn't exist in this proof")
         except AttributeError as e:
             raise EngineError("There is no proof started")
 
