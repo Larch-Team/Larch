@@ -37,6 +37,9 @@ ENGINE = {
     
 }
 
+def lang_code() -> str:
+    return 'pl-pl'
+
 def translate_engine(phrase: str) -> str:
     if (r := ENGINE.get(phrase)):
         return r
@@ -44,4 +47,7 @@ def translate_engine(phrase: str) -> str:
         if re.match(key, phrase):
             return val 
     else:
-        return phrase    
+        return phrase
+    
+def translate_UI(plugin: str, phrase: str) -> str:
+    return phrase

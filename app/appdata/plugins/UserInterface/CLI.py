@@ -27,8 +27,7 @@ logger = logging.getLogger('interface')
 
 def UIlogged(func):
     def new(*args, **kwargs):
-        logger.debug(
-            f"{func.__name__} with args={str(args)} and kwargs={str(kwargs)}")
+        logger.debug(f'{func.__name__} with args={args} and kwargs={kwargs}')
         return func(*args, **kwargs)
     return new
 
@@ -512,6 +511,15 @@ def do_get_rules_docs(session):
         return "\n\n".join(("\n---\n".join(i) for i in session.getrules().items()))
     except engine.EngineError as e:
         return str(e)
+    
+
+def do_get_context(session: engine.Session, rule: str):
+    """Lists all context that's needed to use a rule
+
+    Arguments:
+        - Rule name [str]
+    """
+    return "\n\n".join(("\n---\n".join((i.official, i.docs)) for i in session.context_info(rule)))
 
 
 def do_get_tree(session: engine.Session) -> str:
@@ -544,6 +552,7 @@ command_dict = OrderedDict({
     # Navigation
     'exit': {'comm': do_exit, 'args': []},
     'get rules': {'comm': do_get_rules_docs, 'args': []},
+    'get context': {'comm': do_get_context, 'args': 'multiple_strings'},
     'get tree': {'comm': do_get_tree, 'args': []},
     'jump': {'comm': do_jump, 'args': 'multiple_strings'},
     'next': {'comm': do_next, 'args': []},
@@ -682,13 +691,12 @@ def run() -> int:
             to_perform = parser(command, command_dict)
         except ParsingError as e:
             ptk.print_formatted_text(e)
-            logger.debug(f"ParingError: {e}")
+            logger.debug(f'ParingError: {e}')
             continue
         except TypeError as e:
-            ptk.print_formatted_text(f"błąd: złe argumenty")
-            logger.debug(f"Exception caught: {e}")
+            ptk.print_formatted_text('błąd: złe argumenty')
+            logger.debug(f'Exception caught: {e}')
             continue
-
         for procedure in to_perform:
             performed = performer(procedure, session)
             if isinstance(performed, tp.Generator):

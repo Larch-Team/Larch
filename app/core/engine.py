@@ -68,7 +68,7 @@ class Session(object):
     Wszystkie wyjątki określane jako `EngineError` mają wbudowany string w formie "dostępnej dla użytkownika"
     """
     ENGINE_VERSION = '0.0.1'
-    SOCKETS = {'Assistant': '0.0.1',
+    SOCKETS = {'Assistant': '0.2.0',
                'Formal': '0.2.0',
                'Lexicon': '0.0.1',
                'Output': '0.0.1',
@@ -108,6 +108,16 @@ class Session(object):
     @spare_transl
     def __repr__(self):
         return f"Session({self.id=})"
+
+    # Translation
+    
+    @spare_transl
+    def get_lang(self) -> str:
+        return self.acc('Translate').lang_code()
+    
+    @spare_transl
+    def translateUI(self, phrase: str) -> str:
+        return self.acc('Translate').translate_UI(self.acc('UserInterface').get_plugin_name(), phrase)
 
     # Plugin manpiulation
 
@@ -342,7 +352,7 @@ class Session(object):
         if problem:
             logger.warning(
                 f"{statement} is not a valid statement \n{problem.name}")
-            p = self.acc('Assistant').mistake_syntax(problem)
+            p = self.acc('Assistant').mistake_syntax(problem, self.get_lang())
             return p or [problem.default]
         else:
             tokenized = self.acc('Formal').prepare_for_proving(tokenized)
@@ -370,7 +380,7 @@ class Session(object):
         else:
             return None
 
-    def context_info(self, rule: str):
+    def context_info(self, rule: str) -> list[ContextDef]:
         """
         Zwraca kontekst wymagany dla reguły w postaci obiektów ContextDef
 
@@ -380,7 +390,13 @@ class Session(object):
         docs        - Dokumentacja dla zmiennej wyświetlalna dla użytkownika
         type_       - Typ zmiennej, albo jest to dosłownie typ, albo string wyrażony w `TYPE_LEXICON`
         """
-        return self.acc('Formal').get_needed_context(rule)
+        
+        context = self.acc('Formal').get_needed_context(rule)
+        return [self._context_Assist(i, rule) for i in context]
+
+    def _context_Assist(self, contextdef: ContextDef, rule: str):
+        official, docs = self.acc('Assistant').context_docs(contextdef.variable, rule, self.get_lang()) or (contextdef.official, contextdef.docs)
+        return ContextDef(contextdef.variable, official, docs, contextdef.type_)
 
     @EngineLog
     def use_rule(self, rule: str, context: dict[str, tp.Any]) -> tp.Union[None, list[str]]:
@@ -411,7 +427,7 @@ class Session(object):
             self.proof.use_rule(rule, context, decisions=None)
         except RaisedUserMistake as e:
             if self.sockets['Assistant'].isplugged():
-                return self.acc('Assistant').mistake_userule(e) or [e.default]
+                return self.acc('Assistant').mistake_userule(e, self.get_lang()) or [e.default]
             else:
                 return [e.default]
         return None
@@ -512,7 +528,7 @@ class Session(object):
 
     def start_help(self) -> list[str]:
         """Zwraca listę podpowiedzi do wyświetlenia użytkownikowi"""
-        return self.acc('Assistant').hint_start() or []
+        return self.acc('Assistant').hint_start(self.get_lang()) or []
 
     @EngineLog
     def hint(self) -> list[str]:
@@ -521,7 +537,7 @@ class Session(object):
             raise EngineError(
                 "There is no proof started")
 
-        return self.acc('Assistant').hint_command(self.proof)
+        return self.acc('Assistant').hint_command(self.proof, self.get_lang())
 
     @EngineLog
     def check(self, proof: Proof = None) -> list[str]:
@@ -535,7 +551,7 @@ class Session(object):
         mistakes = proof.check()
         l = []
         for i in mistakes:
-            if v := self.acc('Assistant').mistake_check(i) is not None:
+            if v := self.acc('Assistant').mistake_check(i, self.get_lang()) is not None:
                 l.extend(v)
             else:
                 l.append(i.default)
@@ -581,7 +597,10 @@ class Session(object):
 
     def getrules(self) -> dict[str, str]:
         """Zwraca nazwy reguł wraz z dokumentacją"""
-        return self.acc('Formal').get_rules_docs()
+        return {
+            rule: self.acc('Assistant').rule_docs(rule, self.get_lang()) or docs
+            for rule, docs in self.acc('Formal').get_rules_docs().items()
+        }
 
     def gettree(self) -> list[str]:
         """Zwraca całość drzewa jako listę ciągów znaków"""
