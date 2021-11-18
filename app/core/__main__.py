@@ -38,7 +38,7 @@ if __name__ == "__main__":
             os.mkdir('config')
             configs = []
         if not configs:
-            UI.plug('CLI')
+            UI.plug('flask_local')
         else:
             p = 'config/config.json' if 'config.json' in configs else configs[0]
             with open(p, 'r') as file:
