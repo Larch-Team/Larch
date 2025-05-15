@@ -4,8 +4,6 @@
 
 *Larch* jest składającym się z **modułów** systemem służącym do **wspomagania dowodzenia**. W tym projekcie skupiamy się na poprawie metod **dydaktyki logiki** chcąc doprowadzić do możliwości **dowodzenia tylko i wyłącznie myszką**. Aktualnie wspieramy tabele analityczne KRZ (sygnowane i niesygnowane) oraz oferujemy konsolową implementację rachunku sekwentów.
 
-> The truth is only one click away!
-
 ## Opis dla niektórych
 
 *Larch* jest silnikiem wspomagania dowodzenia opartym na silnej implementacji Plugin Oriented Programming. Projekt rozwijany jest w celach dydaktycznych - aby odciążyć studentów od przepisywania zdań oraz rozpisywania reguł, dając tym samym możliwość skupienie się na strategii dowodu. Zaawansowanym użytkownikom oferowana jest możliwość tworzenia systemów dowodzenia, parserów, form wydruku, podpowiedzi, a nawet interfejsów.
